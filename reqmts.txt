@@ -1,0 +1,698 @@
+devops -- exp 2 to 7
+
+Devops-lab
+
+EXP2 -flask app and docker hub-----------------------------------------------------
+
+app.py--------
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Hello from Dockerised Flask!"
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+
+
+
+requirements.txt---------
+flask
+
+
+Dockerfile-------
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+EXPOSE 5000
+CMD ["python", "app.py"]
+
+
+Build and run------
+# Build
+docker build -t <dockerhub-username>/flask-app:latest .
+
+# Test locally → visit http://localhost:5000
+docker run -d -p 5000:5000 <dockerhub-username>/flask-app:latest
+
+# Login and push
+docker login
+docker push <dockerhub-username>/flask-app:latest
+
+
+
+
+
+
+
+EXP3 --student details----------------------------------------------------------------
+app.py---------
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+students = {}
+next_id = 1
+
+@app.route('/students', methods=['GET'])
+def get_students():
+    return jsonify(list(students.values()))
+
+@app.route('/students', methods=['POST'])
+def add_student():
+    global next_id
+    data = request.get_json()
+    student = {'id': next_id, 'name': data['name'], 'roll': data['roll']}
+    students[next_id] = student
+    next_id += 1
+    return jsonify(student), 201
+
+@app.route('/students/<int:sid>', methods=['DELETE'])
+def delete_student(sid):
+    students.pop(sid, None)
+    return jsonify({'msg': 'Deleted'})
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+Run and test------------
+python -m pip install flask
+python app.py
+
+
+#GO TO http://127.0.0.1:5000/students in browser
+#see []
+
+# Open new Terminal
+# Add a student
+Invoke-RestMethod -Uri "http://127.0.0.1:5000/students" `
+-Method POST `
+-Headers @{ "Content-Type" = "application/json" } `
+-Body '{"name":"Alice","roll":"CS001"}'
+
+
+#GO TO http://127.0.0.1:5000/students in browser and refresh
+#see the difference
+
+
+
+
+EXP4 --ci/cd pipeline----------------------------------------------------------------
+
+#Create the following folder structure
+Dockerfile
+.github/
+└── workflows/
+    └── docker-publish.yml
+
+
+#In docker-publish.yml
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/python-app:latest .
+
+      - name: Push to Docker Hub
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/python-app:latest
+
+#In Dockerfile
+FROM python:3.10
+
+WORKDIR /app
+
+COPY . .
+
+RUN pip install flask
+
+CMD ["python", "app.py"]
+
+#In GitHub:
+#Create a Repository
+#Go To Settings -> Secrets and Variables -> Actions
+#Click New Repository Secrets
+
+| Name            | Value                |
+| --------------- | -------------------- |
+| DOCKER_USERNAME | your docker username |
+| DOCKER_PASSWORD | your docker password |
+
+#In VS Code Terminal
+git init
+git add .
+git commit -m "Initial commit for Ex4"
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+git branch -M main
+git push -u origin main
+
+#For Verification
+Your Repository - Action Tab
+#Verify the Tick
+
+Devops5 Jenkins
+Q5 – Jenkins Pipeline (Complete Setup)
+Objective
+To build and run a Dockerized Flask application using Jenkins pipeline.
+
+Step 1: Create Project Files
+1. app.py
+from flask import Flask app = Flask(name)
+
+@app.route('/') def home(): return "Hello from Jenkins"
+
+app.run(host='0.0.0.0', port=5000)
+
+2. requirements.txt
+flask
+
+3. Dockerfile
+FROM python:3.11
+ WORKDIR /app
+ COPY . . RUN pip install -r requirements.txt
+ EXPOSE 5000 CMD ["python","app.py"]
+
+4. Jenkinsfile
+pipeline { agent any stages { stage('Build') { steps { sh 'docker build -t myapp .' } } stage('Run') { steps { sh 'docker run -d -p 5000:5000 myapp' } } } }
+
+Step 2: Run Jenkins using Docker
+docker run -d -p 8080:8080 -p 50000:50000 jenkins/jenkins:lts
+
+Step 3: Get Container ID
+docker ps
+
+(Copy CONTAINER ID)
+
+Step 4: Get Jenkins Password
+docker exec -it <container_id> cat /var/jenkins_home/secrets/initialAdminPassword
+
+Step 5: Open Jenkins
+http://localhost:8080
+
+Paste password → Install Plugins → Create User
+
+Step 6: Create Pipeline Job
+New Item → Pipeline → Name: myapp → OK
+
+Step 7: Connect GitHub
+Pipeline → Pipeline script from SCM SCM → Git
+
+Repository URL: https://github.com//.git
+
+Branch: main Script Path: Jenkinsfile
+
+Step 8: Build Pipeline
+Click → Build Now
+
+Click build → Console Output
+
+Step 9: Output
+Jenkins builds Docker image and runs container successfully.
+
+Result
+Successfully implemented Jenkins CI/CD pipeline. app.py Dockerfile requirements.txt Jenkinsfile
+
+
+# DevopsQ6
+
+kubectl cluster-info
+kubectl create deployment myapp --image=nginx
+kubectl get deployment
+kubectl scale deployment myapp --replicas=2
+kubectl get pods
+kubectl expose deployment myapp --type=NodePort --port=80
+kubectl get services
+kubectl create deployment myapp --image=nginx --dry-run=client -o yaml > deploy.yaml
+kubectl apply -f deploy.yaml
+kubectl get all
+kubectl get deployment myapp -o yaml
+kubectl delete deployment myapp
+kubectl delete service myapp
+
+Using a YAML manifest (deployment.yaml)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+kubectl apply -f deployment.yaml
+kubectl get all
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+exp 6-- 7 gpt steps
+exp 6--- kube
+
+STEP 0 — Check Setup
+
+First, we confirm that kubectl is working.
+ Run this in your terminal:
+
+kubectl version --client
+
+🧪 STEP 1 — Install Minikube
+
+We fix this first. No cluster = nothing will work.
+
+👉 Do this:
+Go to official Minikube download page
+(search: Minikube Windows download)
+Download:
+👉 minikube-windows-amd64.exe
+Rename it to:
+minikube.exe
+Move it to:
+C:\Windows\System32
+
+
+🔁 Now test again
+
+Open NEW terminal (important)
+
+Run:
+
+minikube version
+
+
+🧪 STEP 2 — Start Kubernetes Cluster
+
+Now that Minikube is installed, we start your cluster.
+
+👉 Run this:
+minikube start
+
+⏳ What happens:
+Downloads Kubernetes components
+Starts a local cluster
+Configures kubectl to use it
+
+This may take 2–5 minutes, so wait patiently.
+
+🧪 STEP 3 — Create Your First Deployment
+
+Now we actually create an app in Kubernetes using kubectl.
+
+👉 Run this command:
+kubectl create deployment myapp --image=nginx:latest
+
+🔍 Now verify it
+
+Run:
+
+kubectl get deployments
+
+Then:
+
+kubectl get pods
+✅ Expected:
+Deployment: myapp
+Pod: running (STATUS = Running)
+
+
+I’m going to assume your cluster started successfully. If it didn’t, say so — otherwise we continue.
+
+🧪 STEP 3 — Create Your First Deployment
+
+Now we actually create an app in Kubernetes using kubectl.
+
+👉 Run this command:
+kubectl create deployment myapp --image=nginx:latest
+💡 What this does:
+Creates a Deployment named myapp
+Pulls the nginx image
+Automatically creates a Pod
+🔍 Now verify it
+
+Run:
+
+kubectl get deployments
+
+Then:
+
+kubectl get pods
+✅ Expected:
+Deployment: myapp
+Pod: running (STATUS = Running)
+❌ If pod shows:
+Pending → wait a bit
+ErrImagePull → internet issue
+CrashLoopBackOff → tell me
+
+👉 Your turn:
+Run both commands and reply with:
+
+“done” ✅
+or
+paste output ❌
+
+Then we go to STEP 4 — Scaling 🚀
+
+next
+
+Alright, moving on.
+
+🧪 STEP 4 — Scale the Deployment
+
+Now you’ll increase the number of pods (this is a key Kubernetes concept).
+
+👉 Scale UP to 3 pods:
+kubectl scale deployment myapp --replicas=3
+🔍 Check pods:
+kubectl get pods
+✅ Expected:
+
+You should now see 3 pods running (names will be similar like myapp-xxxxx)
+
+
+🔽 Now scale DOWN:
+kubectl scale deployment myapp --replicas=1
+
+👉 Check again:
+
+kubectl get pods
+✅ Expected:
+
+Only 1 pod remains
+
+
+🧪 STEP 5 — Expose Your App (Service)
+
+Right now your app is running inside Kubernetes, but you can’t access it from browser yet.
+
+We fix that by creating a Service.
+
+👉 Run this:
+kubectl expose deployment myapp --port=80 --type=NodePort
+💡 What this does:
+Creates a Service
+Opens a port so you can access nginx from your system
+🔍 Check service:
+kubectl get services
+
+✅ You’ll see something like:
+myapp
+TYPE = NodePort
+PORT = 80:3xxxx
+
+👉 That 3xxxx port is important
+
+🌐 Access your app
+
+If using Minikube:
+
+minikube service myapp
+
+👉 This will automatically open browser
+
+✅ Expected:
+
+You should see:
+👉 NGINX welcome page
+
+
+🧪 STEP 6 — Inspect + Logs + Cleanup
+🔍 1. Get Pod Name
+kubectl get pods
+
+👉 Copy one pod name (example: myapp-xxxxx)
+
+🔎 2. Describe Pod
+kubectl describe pod <pod-name>
+
+📜 3. View Logs
+kubectl logs <pod-name>
+💡 Output:
+nginx access logs
+request info
+🧹 4. Clean Up (IMPORTANT for exam)
+kubectl delete deployment myapp
+kubectl delete service myapp
+✅ Verify everything deleted:
+kubectl get all
+
+👉 Should show no resources
+
+🧾 STEP 7 — YAML Method (Important for Viva)
+
+Instead of commands, Kubernetes can use configuration files
+
+👉 Create file: deployment.yaml
+
+Paste this:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+👉 Apply YAML:
+kubectl apply -f deployment.yaml
+👉 Check:
+kubectl get all
+
+
+
+exp 7
+
+🧪 STEP 0 — What You Are Building
+
+You are creating a CI/CD pipeline using:
+
+GitHub Actions
+Docker
+Docker Hub
+
+👉 Goal:
+When you push code → it automatically builds & uploads Docker image
+
+🧪 STEP 1 — Create Project Files
+
+Inside your project folder, create:
+
+1️⃣ app.py
+print("Hello from Docker + GitHub Actions!")
+2️⃣ requirements.txt
+# empty or add packages if needed
+3️⃣ Dockerfile
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY . .
+
+RUN pip install -r requirements.txt
+
+CMD ["python", "app.py"]
+✅ At this point your folder should look like:
+project/
+ ├── app.py
+ ├── requirements.txt
+ ├── Dockerfile
+
+
+🧪 STEP 2 — Push Project to GitHub
+
+Go to GitHub
+
+👉 Do this:
+1️⃣ Create a new repository
+Name: python-docker-app (or anything)
+Keep it public (easier for lab)
+2️⃣ Upload your files
+
+In your project folder terminal:
+
+git init
+git add .
+git commit -m "initial commit"
+git branch -M main
+git remote add origin https://github.com/<your-username>/<repo-name>.git
+git push -u origin main
+✅ Expected:
+
+Your files should appear in GitHub repo
+
+🧪 STEP 3 — Create Docker Hub Account + Secrets
+
+You need Docker Hub credentials so GitHub Actions can push images.
+
+👉 1️⃣ Create Docker Hub account
+Go to Docker Hub website
+Sign up (if not already)
+👉 2️⃣ Get your credentials
+
+You need:
+
+Username
+Password (or access token — better)
+👉 3️⃣ Add Secrets in GitHub
+
+Go to your repo → Settings → Secrets and variables → Actions
+
+Click New repository secret
+
+➕ Add these 2 secrets:
+Name:
+DOCKER_USERNAME
+
+Value:
+
+your-docker-username
+Name:
+DOCKER_PASSWORD
+
+Value:
+
+your-docker-password OR access token
+✅ After this:
+
+GitHub can securely log in to Docker Hub
+
+Alright — final step 🚀 (this is where everything connects)
+
+🧪 STEP 4 — Create GitHub Actions Pipeline
+
+Now we create the workflow file that automates everything using GitHub Actions.
+
+👉 1️⃣ Create folders in your project
+
+Inside your repo, create:
+
+.github/workflows/
+👉 2️⃣ Create file
+
+Inside that folder, create:
+
+build-push.yml
+👉 3️⃣ Paste this code
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/python-app:latest
+👉 4️⃣ Push this file
+git add .
+git commit -m "Added GitHub Actions workflow"
+git push
+⚙️ What Happens Now
+GitHub detects push
+Runs pipeline automatically
+Builds Docker image
+Pushes to Docker Hub
+🔍 Check result
+
+Go to:
+👉 GitHub repo → Actions tab
+
+You should see:
+
+Workflow running ✅
+Green tick = success
+🐳 Verify in Docker Hub
+
+Go to your Docker Hub account → Repositories
+
+👉 You should see:
+
+python-app
+🎯 FINAL OUTPUT (What Examiner Expects)
+GitHub repo with workflow
+Successful pipeline run
+Docker image pushed
+
